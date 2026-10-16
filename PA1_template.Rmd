@@ -1,25 +1,98 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
+# REPRODUCIBLE RESEARCH: Peer Assessment 1
+Author: Jim Sta. Isabel
 
-
+  
 ## Loading and preprocessing the data
+```{r}
+setwd("/Users/jimstaisabel/Documents/R projects/ReproducibleResearch-Coursera/RepData_PeerAssessment1")
+activity <- read.csv("activity.csv")
+activity$date <- as.Date(activity$date, "%Y-%m-%d")
+```
 
 
+## Mean total number of steps per day
 
-## What is mean total number of steps taken per day?
+#### Histogram of total number of steps per day
+```{r}
+steps_per_day <- tapply(activity$steps, activity$date, sum, na.rm = TRUE)
+
+library(ggplot2)
+qplot(steps_per_day, xlab = "Mean number of steps per day")
+```
+
+#### Mean and median number of daily steps
+```{r}
+c(Mean = mean(steps_per_day, na.rm = TRUE), Median = median(steps_per_day, na.rm = TRUE))
+```
 
 
+## Average daily activity pattern 
+```{r}
+mean_steps_interval <- aggregate(activity$steps, by = list(activity$interval), FUN = mean, na.rm = TRUE)
+names(mean_steps_interval) <- c("interval", "totalsteps")
 
-## What is the average daily activity pattern?
+ggplot(mean_steps_interval, aes(x = interval, y = totalsteps)) + geom_line() +
+    labs(x = "5-Minute Interval", y = "Mean Daily Number of Steps")
+```
+
+#### Interval with highest mean number of steps
+```{r}
+mean_steps_interval[which.max(mean_steps_interval$totalsteps), ]
+```
+Interval 835 has the highest mean daily number of steps taken, with an average of 206 steps.
 
 
+## Inputting missing values
 
-## Imputing missing values
+#### Number of missing values in the steps variable
+```{r}
+table(is.na(activity$steps))
+```
 
+#### Filling in the missing data
+The NA values will be imputed by replacing them with the median number of steps for the interval.
 
+```{r}
+library(dplyr)
 
-## Are there differences in activity patterns between weekdays and weekends?
+activity2 <- activity %>%
+  group_by(interval) %>%
+  mutate(steps = ifelse(is.na(steps),
+                        median(steps, na.rm = TRUE),
+                        steps)) %>%
+  ungroup()
+```
+
+#### Histogram of total number of steps per day using the new dataset with imputed values
+```{r}
+steps_per_day2 <- tapply(activity2$steps, activity2$date, sum, na.rm = TRUE)
+
+qplot(steps_per_day2, xlab = "Mean number of steps per day")
+```
+
+#### Mean and median number of daily steps using the new dataset with imputed values
+```{r}
+c(Mean = mean(steps_per_day2), Median = median(steps_per_day2))
+```
+
+With the imputed data to replace missing values, there are less zero values, so the mean is now higher (9354 vs 9503). The median is the same.
+
+## Activity patterns between weekdays and weekends
+
+#### Creating a weekday/weekend variable
+```{r}
+activity2$dayofweek <- weekdays(activity2$date)
+weekdays <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday")
+activity2$dayofweek <- ifelse(activity2$dayofweek %in% weekdays, "weekday", "weekend")
+```
+
+#### Activity pattern on weekdays vs on weekends
+```{r}
+mean_steps_interval2 <- aggregate(activity2$steps, by = list(activity2$interval, activity2$dayofweek), FUN = mean)
+names(mean_steps_interval2) <- c("interval", "dayofweek", "totalsteps")
+
+ggplot(mean_steps_interval2, aes(x = interval, y = totalsteps)) +
+    geom_line() +
+    facet_wrap(dayofweek ~., nrow = 2, ncol = 1) +
+    labs(x = "5-Minute Interval", y = "Mean Daily Number of Steps")
+```
